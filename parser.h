@@ -3,6 +3,7 @@
 #include <vector>
 #include <stack>
 #include <string>
+#include <map>
 
 struct Node {
     std::string type;
@@ -35,9 +36,23 @@ private:
     Node* ast;
     Node* currentStatement;
     int tempVarCounter;
-    int quadIndex;  // ��Ԫʽ���
-    std::map<std::string, int> labelMap;  // ��ǩӳ��
+    int quadIndex;  // 四元式序号
+    std::map<std::string, int> labelMap;  // 标签映射
     std::string expressionResult;
+
+    // 生成四元式相关函数
+    void generateQuadruple(const std::string& op,
+        const std::string& arg1,
+        const std::string& arg2,
+        const std::string& result);
+    void generateJump(const std::string& op,
+        const std::string& arg1,
+        const std::string& arg2,
+        int target);
+    void backPatch(int jumpInstr, int target);
+    int getNextQuad() const { return quadIndex; }
+
+    // 解析函数
     bool parseParenBooleanExpression(const std::vector<Token>& tokens, size_t& pos);
     bool parseStatement(const std::vector<Token>& tokens, size_t& pos);
     bool parseCompoundStatement(const std::vector<Token>& tokens, size_t& pos);
@@ -48,12 +63,9 @@ private:
     bool parseTerm(const std::vector<Token>& tokens, size_t& pos);
     bool parseFactor(const std::vector<Token>& tokens, size_t& pos);
     bool parseBooleanExpression(const std::vector<Token>& tokens, size_t& pos);
-    void generateQuadruple(const std::string& op,
-        const std::string& arg1,
-        const std::string& arg2,
-        const std::string& result);
+
+    // 辅助函数
     std::string getTokenInfo(const Token& token);
     void reportError(const std::string& message, const Token& token);
     std::string tokenTypeToString(TokenType type);
-    
 };
