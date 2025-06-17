@@ -1,0 +1,9 @@
+while(a>b) do
+    begin
+        if m>=n then a:=a+1
+        else
+            while k=h do x:=x+2;
+        m:=n+x*(m+y)
+    end
+#
+~

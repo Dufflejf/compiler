@@ -1,27 +1,23 @@
 #pragma once
+#ifndef ASSEMBLER_H
+#define ASSEMBLER_H
+
 #include <string>
 #include <vector>
-#include <map>
 #include <set>
 
-class Assembler {
-public:
-    Assembler();
-    void processQuadruple(const std::vector<std::string>& quadruples);
-    void writeToFile(const std::string& filename);
-    void printAssembly() const;  // 新增：打印汇编代码
-
-private:
-    std::vector<std::string> asmCode;
-    std::set<std::string> variables;  // 使用set存储变量名
-
-    void generateDataSection();
-    void generateCodeSection();
-    void processArithmetic(const std::string& op, const std::string& arg1,
-        const std::string& arg2, const std::string& result);
-    void processJump(const std::string& op, const std::string& arg1,
-        const std::string& arg2, const std::string& target);
-    void processAssignment(const std::string& source, const std::string& target);
-    bool isNumber(const std::string& str) const;
-    std::string cleanVarName(const std::string& var) const;  // 新增：清理变量名
+struct Quadruple {
+    int label;
+    std::string op;
+    std::string arg1;
+    std::string arg2;
+    std::string result;
 };
+
+bool is_temp(const std::string& s);
+bool is_number(const std::string& s);
+std::vector<Quadruple> parse_quads(const std::string& filename);
+std::set<std::string> collect_vars(const std::vector<Quadruple>& quads);
+void generate_assembly(const std::vector<Quadruple>& quads, const std::set<std::string>& vars, const std::string& output_filename);
+
+#endif // ASSEMBLER_H

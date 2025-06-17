@@ -36,11 +36,11 @@ private:
     Node* ast;
     Node* currentStatement;
     int tempVarCounter;
-    int quadIndex;  // å››å…ƒå¼åºå·
-    std::map<std::string, int> labelMap;  // æ ‡ç­¾æ˜ å°„
+    int quadIndex;  // ËÄÔªÊ½ĞòºÅ
+    std::map<std::string, int> labelMap;  // ±êÇ©Ó³Éä
     std::string expressionResult;
 
-    // ç”Ÿæˆå››å…ƒå¼ç›¸å…³å‡½æ•°
+    // Éú³ÉËÄÔªÊ½Ïà¹Øº¯Êı
     void generateQuadruple(const std::string& op,
         const std::string& arg1,
         const std::string& arg2,
@@ -51,8 +51,8 @@ private:
         int target);
     void backPatch(int jumpInstr, int target);
     int getNextQuad() const { return quadIndex; }
-
-    // è§£æå‡½æ•°
+    std::vector<int> breakList;
+    // ½âÎöº¯Êı
     bool parseParenBooleanExpression(const std::vector<Token>& tokens, size_t& pos);
     bool parseStatement(const std::vector<Token>& tokens, size_t& pos);
     bool parseCompoundStatement(const std::vector<Token>& tokens, size_t& pos);
@@ -64,7 +64,7 @@ private:
     bool parseFactor(const std::vector<Token>& tokens, size_t& pos);
     bool parseBooleanExpression(const std::vector<Token>& tokens, size_t& pos);
 
-    // è¾…åŠ©å‡½æ•°
+    // ¸¨Öúº¯Êı
     std::string getTokenInfo(const Token& token);
     void reportError(const std::string& message, const Token& token);
     std::string tokenTypeToString(TokenType type);

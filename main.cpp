@@ -1,6 +1,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "slr_generator.h"
+#include"assembler.h"
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -75,6 +76,9 @@ int main() {
             std::cout << "语法分析失败！请检查输入程序的语法是否正确。" << std::endl;
         }
 
+        std::vector<Quadruple> quads = parse_quads("pas.med");
+        std::set<std::string> vars = collect_vars(quads);
+        generate_assembly(quads, vars, "pas.asm");
     }
     catch (const std::exception& e) {
         std::cerr << "错误：" << e.what() << std::endl;
