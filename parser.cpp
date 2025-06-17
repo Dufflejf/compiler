@@ -2,7 +2,8 @@
 #include <iostream>
 #include <sstream>
 
-Parser::Parser() : ast(nullptr), currentStatement(nullptr), tempVarCounter(0) {
+Parser::Parser() : ast(nullptr), currentStatement(nullptr),
+tempVarCounter(1), quadIndex(100) {
     stateStack.push(0);
 }
 
@@ -13,79 +14,111 @@ Parser::~Parser() {
     }
 }
 
+void Parser::generateQuadruple(const std::string& op,
+    const std::string& arg1,
+    const std::string& arg2,
+    const std::string& result) {
+    std::stringstream ss;
+    ss << quadIndex << " (";
+    if (op == "+" || op == "*" || op == ":=") {
+        ss << op << ", " << arg1 << ", " << arg2 << ", " << result;
+    }
+    ss << ")";
+    quadruples.push_back(ss.str());
+    quadIndex++;
+}
+
+void Parser::generateJump(const std::string& op,
+    const std::string& arg1,
+    const std::string& arg2,
+    int target) {
+    std::stringstream ss;
+    ss << quadIndex << " (j" << op << ", " << arg1 << ", " << arg2 << ", " << target << ")";
+    quadruples.push_back(ss.str());
+    quadIndex++;
+}
+
+void Parser::backPatch(int jumpInstr, int target) {
+    if (jumpInstr >= 100 && jumpInstr < quadIndex) {
+        std::stringstream ss;
+        ss << jumpInstr << " (j, , , " << target << ")";
+        quadruples[jumpInstr - 100] = ss.str();
+    }
+}
+
 bool Parser::parse(const std::vector<Token>& tokens) {
     size_t pos = 0;
     try {
-        std::cout << "\n¿ªÊ¼Óï·¨·ÖÎö..." << std::endl;
+        std::cout << "\nå¼€å§‹è¯­æ³•åˆ†æ..." << std::endl;
 
         while (pos < tokens.size()) {
             const Token& token = tokens[pos];
-            std::cout << "´¦Àí´Ê·¨µ¥Ôª: " << getTokenInfo(token) << std::endl;
+            std::cout << "å¤„ç†è¯æ³•å•å…ƒ: " << getTokenInfo(token) << std::endl;
 
             switch (token.type) {
             case SY_BEGIN:
                 if (!parseCompoundStatement(tokens, pos)) {
-                    reportError("¸´ºÏÓï¾ä½âÎöÊ§°Ü", token);
+                    reportError("å¤åˆè¯­å¥è§£æå¤±è´¥", token);
                     return false;
                 }
                 break;
 
             case SY_WHILE:
                 if (!parseWhileStatement(tokens, pos)) {
-                    reportError("whileÓï¾ä½âÎöÊ§°Ü", token);
+                    reportError("whileè¯­å¥è§£æå¤±è´¥", token);
                     return false;
                 }
                 break;
 
             case SY_IF:
                 if (!parseIfStatement(tokens, pos)) {
-                    reportError("ifÓï¾ä½âÎöÊ§°Ü", token);
+                    reportError("ifè¯­å¥è§£æå¤±è´¥", token);
                     return false;
                 }
                 break;
 
             case IDENT:
                 if (!parseAssignmentStatement(tokens, pos)) {
-                    reportError("¸³ÖµÓï¾ä½âÎöÊ§°Ü", token);
+                    reportError("èµ‹å€¼è¯­å¥è§£æå¤±è´¥", token);
                     return false;
                 }
                 break;
 
             case JINGHAO:
-                // ¼ì²é³ÌĞò½áÊø±ê¼Ç "#~"
-                pos++; // Ìø¹ı #
+                // æ£€æŸ¥ç¨‹åºç»“æŸæ ‡è®° "#~"
+                pos++; // è·³è¿‡ #
                 if (pos < tokens.size() && tokens[pos].value == "~") {
-                    std::cout << "·¢ÏÖ³ÌĞò½áÊø±ê¼Ç #~" << std::endl;
-                    pos++; // Ìø¹ı ~
-                    std::cout << "³ÌĞò½âÎöÍê³É" << std::endl;
+                    std::cout << "å‘ç°ç¨‹åºç»“æŸæ ‡è®° #~" << std::endl;
+                    pos++; // è·³è¿‡ ~
+                    std::cout << "ç¨‹åºè§£æå®Œæˆ" << std::endl;
                     return true;
                 }
-                reportError("²»ÍêÕûµÄ³ÌĞò½áÊø±ê¼Ç£¬ĞèÒª #~", token);
+                reportError("ä¸å®Œæ•´çš„ç¨‹åºç»“æŸæ ‡è®°ï¼Œéœ€è¦ #~", token);
                 return false;
 
             default:
-                reportError("ÒâÍâµÄ´Ê·¨µ¥Ôª", token);
+                reportError("æ„å¤–çš„è¯æ³•å•å…ƒ", token);
                 return false;
             }
         }
 
-        // Èç¹ûµ½´ïÕâÀïµ«Ã»ÓĞÓöµ½ #~£¬Ò²±¨¸æ´íÎó
+        // å¦‚æœåˆ°è¾¾è¿™é‡Œä½†æ²¡æœ‰é‡åˆ° #~ï¼Œä¹ŸæŠ¥å‘Šé”™è¯¯
         Token invalidToken;
-        reportError("È±ÉÙ³ÌĞò½áÊø±ê¼Ç #~", invalidToken);
+        reportError("ç¼ºå°‘ç¨‹åºç»“æŸæ ‡è®° #~", invalidToken);
         return false;
     }
     catch (const std::exception& e) {
-        std::cerr << "½âÎö¹ı³Ì·¢ÉúÒì³£: " << e.what() << std::endl;
+        std::cerr << "è§£æè¿‡ç¨‹å‘ç”Ÿå¼‚å¸¸: " << e.what() << std::endl;
         return false;
     }
 }
 
 bool Parser::parseCompoundStatement(const std::vector<Token>& tokens, size_t& pos) {
-    std::cout << "½âÎö¸´ºÏÓï¾ä¿ªÊ¼" << std::endl;
+    std::cout << "è§£æå¤åˆè¯­å¥å¼€å§‹" << std::endl;
 
-    // ¼ì²ébegin
+    // æ£€æŸ¥begin
     if (tokens[pos].type != SY_BEGIN) {
-        reportError("È±ÉÙbegin¹Ø¼ü×Ö", tokens[pos]);
+        reportError("ç¼ºå°‘beginå…³é”®å­—", tokens[pos]);
         return false;
     }
     pos++;
@@ -100,7 +133,7 @@ bool Parser::parseCompoundStatement(const std::vector<Token>& tokens, size_t& po
     Node* previousStatement = currentStatement;
     currentStatement = compoundNode;
 
-    // ½âÎöÓï¾äĞòÁĞ
+    // è§£æè¯­å¥åºåˆ—
     while (pos < tokens.size() && tokens[pos].type != SY_END) {
         switch (tokens[pos].type) {
         case SY_IF:
@@ -116,36 +149,36 @@ bool Parser::parseCompoundStatement(const std::vector<Token>& tokens, size_t& po
             pos++;
             continue;
         default:
-            if (tokens[pos].type != SY_END) { // ²»Òª°Ñend±¨¸æÎª´íÎó
-                reportError("ÎŞĞ§µÄÓï¾ä¿ªÊ¼", tokens[pos]);
+            if (tokens[pos].type != SY_END) { // ä¸è¦æŠŠendæŠ¥å‘Šä¸ºé”™è¯¯
+                reportError("æ— æ•ˆçš„è¯­å¥å¼€å§‹", tokens[pos]);
                 return false;
             }
         }
 
-        // ´¦ÀíÓï¾ä·Ö¸ô·û
+        // å¤„ç†è¯­å¥åˆ†éš”ç¬¦
         if (pos < tokens.size() && tokens[pos].type == SEMICOLON) {
             pos++;
         }
     }
 
-    // ¼ì²éend
+    // æ£€æŸ¥end
     if (pos >= tokens.size() || tokens[pos].type != SY_END) {
-        reportError("È±ÉÙend¹Ø¼ü×Ö", tokens[pos]);
+        reportError("ç¼ºå°‘endå…³é”®å­—", tokens[pos]);
         return false;
     }
     pos++;
 
     currentStatement = previousStatement;
-    std::cout << "¸´ºÏÓï¾ä½âÎöÍê³É" << std::endl;
+    std::cout << "å¤åˆè¯­å¥è§£æå®Œæˆ" << std::endl;
     return true;
 }
 
 bool Parser::parseStatement(const std::vector<Token>& tokens, size_t& pos) {
-    std::cout << "½âÎöÓï¾ä¿ªÊ¼" << std::endl;
+    std::cout << "è§£æè¯­å¥å¼€å§‹" << std::endl;
 
     if (pos >= tokens.size()) {
         Token invalidToken;
-        reportError("ÒâÍâµÄÓï¾ä½áÊø", invalidToken);
+        reportError("æ„å¤–çš„è¯­å¥ç»“æŸ", invalidToken);
         return false;
     }
 
@@ -163,147 +196,135 @@ bool Parser::parseStatement(const std::vector<Token>& tokens, size_t& pos) {
         return parseAssignmentStatement(tokens, pos);
 
     default:
-        reportError("ÎŞĞ§µÄÓï¾ä", tokens[pos]);
+        reportError("æ— æ•ˆçš„è¯­å¥", tokens[pos]);
         return false;
     }
 }
 
+// parseIfStatementå‡½æ•°ä¿®æ”¹
 bool Parser::parseIfStatement(const std::vector<Token>& tokens, size_t& pos) {
-    std::cout << "½âÎöifÓï¾ä¿ªÊ¼" << std::endl;
+    std::cout << "è§£æifè¯­å¥å¼€å§‹" << std::endl;
 
-    pos++; // Ìø¹ıif
+    pos++; // è·³è¿‡if
 
-    Node* ifNode = new Node("If");
-    if (!currentStatement) {
-        ast = ifNode;
-    }
-    else {
-        currentStatement->children.push_back(ifNode);
-    }
-    Node* previousStatement = currentStatement;
-    currentStatement = ifNode;
-
-    // Ö±½Ó½âÎö²¼¶û±í´ïÊ½£¨²»ĞèÒªÀ¨ºÅ£©
+    // è§£æå¸ƒå°”è¡¨è¾¾å¼
     if (!parseBooleanExpression(tokens, pos)) {
-        delete ifNode;
         return false;
     }
 
-    // ¼ì²éthen
+    // ç”Ÿæˆæ¡ä»¶è·³è½¬
+    int falseJump = quadIndex;
+    generateJump("", "", "", 0);
+
+    // æ£€æŸ¥then
     if (pos >= tokens.size() || tokens[pos].type != SY_THEN) {
-        reportError("È±ÉÙthen¹Ø¼ü×Ö", tokens[pos]);
-        delete ifNode;
+        reportError("ç¼ºå°‘thenå…³é”®å­—", tokens[pos]);
         return false;
     }
     pos++;
 
-    // ½âÎöthen²¿·Ö
+    // è§£æthenéƒ¨åˆ†
     if (!parseStatement(tokens, pos)) {
-        delete ifNode;
         return false;
     }
 
-    // ¼ì²éelse
+    // ç”Ÿæˆè·³è½¬åˆ°ç»“æŸ
+    int endJump = quadIndex;
+    generateJump("", "", "", 0);
+
+    // å›å¡«falseåˆ†æ”¯è·³è½¬åœ°å€
+    backPatch(falseJump, quadIndex);
+
+    // æ£€æŸ¥else
     if (pos < tokens.size() && tokens[pos].type == SY_ELSE) {
         pos++;
         if (!parseStatement(tokens, pos)) {
-            delete ifNode;
             return false;
         }
     }
 
-    currentStatement = previousStatement;
-    std::cout << "ifÓï¾ä½âÎöÍê³É" << std::endl;
+    // å›å¡«ç»“æŸè·³è½¬åœ°å€
+    backPatch(endJump, quadIndex);
+
     return true;
 }
 
 bool Parser::parseWhileStatement(const std::vector<Token>& tokens, size_t& pos) {
-    std::cout << "½âÎöwhileÓï¾ä¿ªÊ¼" << std::endl;
-    pos++; // Ìø¹ıwhile
+    std::cout << "è§£æwhileè¯­å¥å¼€å§‹" << std::endl;
 
-    Node* whileNode = new Node("While");
-    if (!currentStatement) {
-        ast = whileNode;
-    }
-    else {
-        currentStatement->children.push_back(whileNode);
-    }
-    Node* previousStatement = currentStatement;
-    currentStatement = whileNode;
+    int startLabel = quadIndex;  // å¾ªç¯å¼€å§‹ä½ç½®
+    pos++; // è·³è¿‡while
 
-    // ¼ì²éÊÇ·ñÓĞ×óÀ¨ºÅ
-    bool hasParentheses = (pos < tokens.size() && tokens[pos].type == LPARENT);
-
-    if (hasParentheses) {
-        pos++; // Ìø¹ı×óÀ¨ºÅ
+    // å¤„ç†æ¡ä»¶
+    if (pos < tokens.size() && tokens[pos].type == LPARENT) {
+        pos++; // è·³è¿‡å·¦æ‹¬å·
     }
 
-    // ½âÎöÌõ¼ş±í´ïÊ½
+    // è§£æå¸ƒå°”è¡¨è¾¾å¼
     if (!parseBooleanExpression(tokens, pos)) {
-        delete whileNode;
         return false;
     }
 
-    if (hasParentheses) {
-        // Èç¹ûÓĞ×óÀ¨ºÅ£¬±ØĞë¼ì²éÓÒÀ¨ºÅ
-        if (pos >= tokens.size() || tokens[pos].type != RPARENT) {
-            reportError("È±ÉÙÓÒÀ¨ºÅ", tokens[pos]);
-            delete whileNode;
-            return false;
-        }
-        pos++; // Ìø¹ıÓÒÀ¨ºÅ
+    if (pos < tokens.size() && tokens[pos].type == RPARENT) {
+        pos++; // è·³è¿‡å³æ‹¬å·
     }
 
-    // ¼ì²édo
+    // ç”Ÿæˆæ¡ä»¶è·³è½¬
+    int condJump = quadIndex;
+    generateJump("", "", "", 0);  // å…ˆç”Ÿæˆä¸€ä¸ªå ä½çš„è·³è½¬æŒ‡ä»¤
+
+    // æ£€æŸ¥do
     if (pos >= tokens.size() || tokens[pos].type != SY_DO) {
-        reportError("È±ÉÙdo¹Ø¼ü×Ö", tokens[pos]);
-        delete whileNode;
+        reportError("ç¼ºå°‘doå…³é”®å­—", tokens[pos]);
         return false;
     }
     pos++;
 
-    // ½âÎöÑ­»·Ìå
+    // è§£æå¾ªç¯ä½“
     if (!parseStatement(tokens, pos)) {
-        delete whileNode;
         return false;
     }
 
-    currentStatement = previousStatement;
-    std::cout << "whileÓï¾ä½âÎöÍê³É" << std::endl;
+    // ç”Ÿæˆå¾ªç¯è·³è½¬
+    generateJump("", "", "", startLabel);
+
+    // å›å¡«æ¡ä»¶è·³è½¬çš„ç›®æ ‡åœ°å€
+    backPatch(condJump, quadIndex);
+
     return true;
 }
 
 bool Parser::parseAssignmentStatement(const std::vector<Token>& tokens, size_t& pos) {
-    std::cout << "½âÎö¸³ÖµÓï¾ä¿ªÊ¼" << std::endl;
+    std::cout << "è§£æèµ‹å€¼è¯­å¥å¼€å§‹" << std::endl;
 
-    // ±£´æ±êÊ¶·û
+    // ä¿å­˜æ ‡è¯†ç¬¦
     if (pos >= tokens.size() || tokens[pos].type != IDENT) {
-        reportError("È±ÉÙ±êÊ¶·û", tokens[pos]);
+        reportError("ç¼ºå°‘æ ‡è¯†ç¬¦", tokens[pos]);
         return false;
     }
     std::string identifier = tokens[pos].value;
     pos++;
 
-    // ¼ì²é¸³Öµ·ûºÅ
+    // æ£€æŸ¥èµ‹å€¼ç¬¦å·
     if (pos >= tokens.size() || tokens[pos].type != BECOMES) {
-        reportError("È±ÉÙ¸³Öµ·ûºÅ", tokens[pos]);
+        reportError("ç¼ºå°‘èµ‹å€¼ç¬¦å·", tokens[pos]);
         return false;
     }
     pos++;
 
-    // ½âÎö±í´ïÊ½
+    // è§£æè¡¨è¾¾å¼
     if (!parseExpression(tokens, pos)) {
         return false;
     }
 
-    // Éú³É¸³ÖµËÄÔªÊ½
+    // ç”Ÿæˆèµ‹å€¼å››å…ƒå¼
     generateQuadruple(":=", expressionResult, "", identifier);
-    std::cout << "¸³ÖµÓï¾ä½âÎöÍê³É" << std::endl;
+    std::cout << "èµ‹å€¼è¯­å¥è§£æå®Œæˆ" << std::endl;
     return true;
 }
 
 bool Parser::parseExpression(const std::vector<Token>& tokens, size_t& pos) {
-    std::cout << "½âÎö±í´ïÊ½¿ªÊ¼" << std::endl;
+    std::cout << "è§£æè¡¨è¾¾å¼å¼€å§‹" << std::endl;
 
     if (!parseTerm(tokens, pos)) {
         return false;
@@ -311,7 +332,7 @@ bool Parser::parseExpression(const std::vector<Token>& tokens, size_t& pos) {
     std::string leftOperand = expressionResult;
 
     while (pos < tokens.size() && tokens[pos].type == PLUS) {
-        pos++; // Ìø¹ı¼ÓºÅ
+        pos++; // è·³è¿‡åŠ å·
 
         if (!parseTerm(tokens, pos)) {
             return false;
@@ -324,19 +345,19 @@ bool Parser::parseExpression(const std::vector<Token>& tokens, size_t& pos) {
         leftOperand = result;
     }
 
-    std::cout << "±í´ïÊ½½âÎöÍê³É" << std::endl;
+    std::cout << "è¡¨è¾¾å¼è§£æå®Œæˆ" << std::endl;
     return true;
 }
 
 bool Parser::parseTerm(const std::vector<Token>& tokens, size_t& pos) {
-    std::cout << "½âÎöÏî¿ªÊ¼" << std::endl;
+    std::cout << "è§£æé¡¹å¼€å§‹" << std::endl;
 
     if (!parseFactor(tokens, pos)) {
         return false;
     }
 
     while (pos < tokens.size() && tokens[pos].type == TIMES) {
-        pos++; // Ìø¹ı³ËºÅ
+        pos++; // è·³è¿‡ä¹˜å·
         std::string leftOperand = expressionResult;
 
         if (!parseFactor(tokens, pos)) {
@@ -349,16 +370,16 @@ bool Parser::parseTerm(const std::vector<Token>& tokens, size_t& pos) {
         expressionResult = result;
     }
 
-    std::cout << "Ïî½âÎöÍê³É" << std::endl;
+    std::cout << "é¡¹è§£æå®Œæˆ" << std::endl;
     return true;
 }
 
 bool Parser::parseFactor(const std::vector<Token>& tokens, size_t& pos) {
-    std::cout << "½âÎöÒò×Ó¿ªÊ¼" << std::endl;
+    std::cout << "è§£æå› å­å¼€å§‹" << std::endl;
 
     if (pos >= tokens.size()) {
         Token invalidToken;
-        reportError("±í´ïÊ½·Ç·¨½áÊø", invalidToken);
+        reportError("è¡¨è¾¾å¼éæ³•ç»“æŸ", invalidToken);
         return false;
     }
 
@@ -371,92 +392,83 @@ bool Parser::parseFactor(const std::vector<Token>& tokens, size_t& pos) {
         break;
 
     case LPARENT:
-        pos++; // Ìø¹ı×óÀ¨ºÅ
+        pos++; // è·³è¿‡å·¦æ‹¬å·
         if (!parseExpression(tokens, pos)) {
             return false;
         }
         if (pos >= tokens.size() || tokens[pos].type != RPARENT) {
-            reportError("È±ÉÙÓÒÀ¨ºÅ", tokens[pos]);
+            reportError("ç¼ºå°‘å³æ‹¬å·", tokens[pos]);
             return false;
         }
-        pos++; // Ìø¹ıÓÒÀ¨ºÅ
+        pos++; // è·³è¿‡å³æ‹¬å·
         break;
 
     default:
-        reportError("·Ç·¨µÄÒò×Ó", token);
+        reportError("éæ³•çš„å› å­", token);
         return false;
     }
 
-    std::cout << "Òò×Ó½âÎöÍê³É" << std::endl;
+    std::cout << "å› å­è§£æå®Œæˆ" << std::endl;
     return true;
 }
 
 bool Parser::parseParenBooleanExpression(const std::vector<Token>& tokens, size_t& pos) {
-    std::cout << "½âÎö´øÀ¨ºÅµÄ²¼¶û±í´ïÊ½¿ªÊ¼" << std::endl;
+    std::cout << "è§£æå¸¦æ‹¬å·çš„å¸ƒå°”è¡¨è¾¾å¼å¼€å§‹" << std::endl;
 
-    // ¼ì²é×óÀ¨ºÅ
+    // æ£€æŸ¥å·¦æ‹¬å·
     if (pos >= tokens.size() || tokens[pos].type != LPARENT) {
-        reportError("È±ÉÙ×óÀ¨ºÅ", tokens[pos]);
+        reportError("ç¼ºå°‘å·¦æ‹¬å·", tokens[pos]);
         return false;
     }
-    pos++; // Ìø¹ı×óÀ¨ºÅ
+    pos++; // è·³è¿‡å·¦æ‹¬å·
 
-    // ½âÎö²¼¶û±í´ïÊ½ÄÚÈİ
+    // è§£æå¸ƒå°”è¡¨è¾¾å¼å†…å®¹
     if (!parseBooleanExpression(tokens, pos)) {
         return false;
     }
 
-    // ¼ì²éÓÒÀ¨ºÅ
+    // æ£€æŸ¥å³æ‹¬å·
     if (pos >= tokens.size() || tokens[pos].type != RPARENT) {
-        reportError("È±ÉÙÓÒÀ¨ºÅ", tokens[pos]);
+        reportError("ç¼ºå°‘å³æ‹¬å·", tokens[pos]);
         return false;
     }
-    pos++; // Ìø¹ıÓÒÀ¨ºÅ
+    pos++; // è·³è¿‡å³æ‹¬å·
 
     return true;
 }
 
 bool Parser::parseBooleanExpression(const std::vector<Token>& tokens, size_t& pos) {
-    std::cout << "½âÎö²¼¶û±í´ïÊ½¿ªÊ¼" << std::endl;
+    std::cout << "è§£æå¸ƒå°”è¡¨è¾¾å¼å¼€å§‹" << std::endl;
 
-    // ½âÎö×ó²Ù×÷Êı
+    // è§£æå·¦æ“ä½œæ•°
     if (!parseExpression(tokens, pos)) {
         return false;
     }
     std::string leftOperand = expressionResult;
 
-    // »ñÈ¡¹ØÏµÔËËã·û
+    // è·å–å…³ç³»è¿ç®—ç¬¦
     if (pos >= tokens.size() || tokens[pos].type != ROP) {
-        reportError("È±ÉÙ¹ØÏµÔËËã·û", tokens[pos]);
+        reportError("ç¼ºå°‘å…³ç³»è¿ç®—ç¬¦", tokens[pos]);
         return false;
     }
     std::string op = tokens[pos].value;
     pos++;
 
-    // ½âÎöÓÒ²Ù×÷Êı
+    // è§£æå³æ“ä½œæ•°
     if (!parseExpression(tokens, pos)) {
         return false;
     }
     std::string rightOperand = expressionResult;
 
-    // Éú³É²¼¶û±í´ïÊ½µÄËÄÔªÊ½
-    std::string result = "B" + std::to_string(tempVarCounter++);
-    generateQuadruple(op, leftOperand, rightOperand, result);
-    expressionResult = result;
+    // ç”Ÿæˆå…³ç³»è¿ç®—çš„è·³è½¬æŒ‡ä»¤
+    generateJump(op, leftOperand, rightOperand, quadIndex + 2);
+    generateJump("", "", "", 0); // ç”Ÿæˆå¤±è´¥æ—¶çš„è·³è½¬
 
-    std::cout << "²¼¶û±í´ïÊ½½âÎöÍê³É" << std::endl;
     return true;
 }
 
-void Parser::generateQuadruple(const std::string& op,
-    const std::string& arg1,
-    const std::string& arg2,
-    const std::string& result) {
-    std::stringstream ss;
-    ss << "(" << op << ", " << arg1 << ", " << arg2 << ", " << result << ")";
-    quadruples.push_back(ss.str());
-    std::cout << "Éú³ÉËÄÔªÊ½: " << ss.str() << std::endl;
-}
+
+
 
 std::vector<std::string> Parser::getQuadruples() const {
     return quadruples;
@@ -468,16 +480,16 @@ Node* Parser::getAST() const {
 
 std::string Parser::getTokenInfo(const Token& token) {
     std::stringstream ss;
-    ss << "ÀàĞÍ: " << tokenTypeToString(token.type)
-        << ", Öµ: " << token.value
-        << ", ĞĞºÅ: " << token.line;
+    ss << "ç±»å‹: " << tokenTypeToString(token.type)
+        << ", å€¼: " << token.value
+        << ", è¡Œå·: " << token.line;
     return ss.str();
 }
 
 void Parser::reportError(const std::string& message, const Token& token) {
-    std::cerr << "Óï·¨´íÎó: " << message << " ";
+    std::cerr << "è¯­æ³•é”™è¯¯: " << message << " ";
     if (token.type != TokenType(-1)) {
-        std::cerr << "ÔÚ " << getTokenInfo(token);
+        std::cerr << "åœ¨ " << getTokenInfo(token);
     }
     std::cerr << std::endl;
 }
