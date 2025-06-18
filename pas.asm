@@ -63,7 +63,8 @@ start:
     mul x
 114:
     mov AX, n
-    add AX, T4
+    mov BX, T4
+    add AX, BX
 115:
     mov m, AX
 116:

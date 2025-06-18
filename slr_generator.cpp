@@ -54,71 +54,82 @@ bool SLRGenerator::isTerminal(const std::string& symbol) {
     return nonTerminals.find(symbol) == nonTerminals.end();
 }
 
+// 计算所有非终结符的FIRST集合
 void SLRGenerator::computeFirstSets() {
-    bool changed;
+    bool changed;  // 标记是否有FIRST集合被更新
     do {
-        changed = false;
+        changed = false;  // 每轮开始前重置标记
+        // 遍历文法中的所有产生式
         for (const auto& prod : productions) {
+            // 获取当前产生式左部非终结符的FIRST集合引用
             std::set<std::string>& firstSet = first[prod.left];
-            size_t oldSize = firstSet.size();
-
+            size_t oldSize = firstSet.size();  // 记录当前FIRST集合大小
+            // 处理空产生式情况（右部为空）
             if (prod.right.empty()) {
-                firstSet.insert("ε");
-                continue;
+                firstSet.insert("ε");  // 加入空串ε
+                continue;  // 跳过后续处理
             }
-
-            // 处理右部第一个符号
+            // 处理产生式右部的第一个符号
             if (isTerminal(prod.right[0])) {
+                // 如果是终结符，直接加入FIRST集合
                 firstSet.insert(prod.right[0]);
             }
             else {
+                // 如果是非终结符，将其FIRST集合内容加入当前FIRST集合
                 const auto& rightFirst = first[prod.right[0]];
                 firstSet.insert(rightFirst.begin(), rightFirst.end());
             }
-
+            // 检查FIRST集合是否发生变化
             if (firstSet.size() > oldSize) {
-                changed = true;
+                changed = true;  // 如果大小变化，标记需要继续迭代
             }
         }
-    } while (changed);
+    } while (changed);  // 当没有FIRST集合更新时停止循环
 }
 
+// 计算所有非终结符的FOLLOW集合
 void SLRGenerator::computeFollowSets() {
-    // 初始化，将#加入到开始符号的FOLLOW集中
+    // 初始化，将结束符#加入到文法开始符号的FOLLOW集中
     follow[productions[0].left].insert("#");
-
-    bool changed;
+    bool changed;  // 标记是否有FOLLOW集合被更新
     do {
-        changed = false;
+        changed = false;  // 每轮开始前重置标记
+        // 遍历文法中的所有产生式
         for (const auto& prod : productions) {
+            // 遍历产生式右部的每个符号
             for (size_t i = 0; i < prod.right.size(); i++) {
+                // 跳过终结符，只处理非终结符
                 if (isTerminal(prod.right[i])) continue;
-
+                // 获取当前非终结符的FOLLOW集合引用
                 std::set<std::string>& followSet = follow[prod.right[i]];
-                size_t oldSize = followSet.size();
-
-                // 如果不是最后一个符号
+                size_t oldSize = followSet.size();  // 记录当前FOLLOW集合大小
+                // 情况1：当前符号不是产生式最后一个符号
                 if (i < prod.right.size() - 1) {
+                    // 情况1.1：下一个符号是终结符
                     if (isTerminal(prod.right[i + 1])) {
-                        followSet.insert(prod.right[i + 1]);
+                        followSet.insert(prod.right[i + 1]);  // 直接加入FOLLOW集
                     }
+                    // 情况1.2：下一个符号是非终结符
                     else {
+                        // 将下一个非终结符的FIRST集加入当前FOLLOW集
                         const auto& nextFirst = first[prod.right[i + 1]];
                         followSet.insert(nextFirst.begin(), nextFirst.end());
                     }
                 }
-                // 如果是最后一个符号或者下一个符号的FIRST集包含ε
+                // 情况2：当前符号是产生式最后一个符号
+                // 或者下一个符号的FIRST集包含ε
                 else {
+                    // 将产生式左部非终结符的FOLLOW集加入当前FOLLOW集
                     const auto& leftFollow = follow[prod.left];
                     followSet.insert(leftFollow.begin(), leftFollow.end());
                 }
-
+                // 检查FOLLOW集合是否发生变化
                 if (followSet.size() > oldSize) {
-                    changed = true;
+                    changed = true;  // 如果大小变化，标记需要继续迭代
                 }
             }
         }
-    } while (changed);
+    } while (changed);  // 当没有FOLLOW集合更新时停止循环
 }
 
 void SLRGenerator::closure(std::set<LR0Item>& items) {
@@ -138,7 +149,7 @@ void SLRGenerator::closure(std::set<LR0Item>& items) {
                 for (const auto& prod : productions) {
                     if (prod.left == nextSymbol) {
                         LR0Item newItem(prod, 0);
-                        if (newItems.insert(newItem).second) {
+                        if (newItems.insert(newItem).second) {//加入newItem
                             changed = true;
                         }
                     }
@@ -171,49 +182,44 @@ std::set<LR0Item> SLRGenerator::computeGoto(const std::set<LR0Item>& items,
     return gotoSet;
 }
 
+// 构造LR(0)自动机的所有项目集（状态）
 void SLRGenerator::constructLR0Items() {
-    states.clear();
-    std::map<std::set<LR0Item>, int> stateMap;
-
-    // 创建初始项目集
+    states.clear();  // 清空现有状态集合
+    std::map<std::set<LR0Item>, int> stateMap;  // 用于记录项目集到状态编号的映射
+    // 1. 创建初始项目集（包含增广文法的第一个产生式）
     std::set<LR0Item> initialItems;
-    initialItems.insert(LR0Item(productions[0], 0));
-    closure(initialItems);
-
-    // 创建初始状态
-    states.push_back(State(initialItems, 0));
-    stateMap[initialItems] = 0;
-
-    // 使用队列进行广度优先搜索
-    std::queue<int> queue;
-    queue.push(0);
-
+    initialItems.insert(LR0Item(productions[0], 0));  // 加入初始项目: S' -> .S
+    closure(initialItems);  // 计算初始项目集的闭包
+    // 2. 创建初始状态（状态0）
+    states.push_back(State(initialItems, 0));  // 将初始项目集加入状态集合
+    stateMap[initialItems] = 0;  // 记录项目集到状态的映射
+    // 3. 使用队列进行广度优先搜索（BFS）构建所有状态
+    std::queue<int> queue;  // 用于BFS的状态队列
+    queue.push(0);  // 从初始状态开始处理
     while (!queue.empty()) {
-        int currentState = queue.front();
-        queue.pop();
-
-        // 获取当前状态的所有符号
+        int currentState = queue.front();  // 获取当前处理的状态编号
+        queue.pop();  // 从队列中移除
+        // 4. 收集当前状态所有可能的转移符号（圆点后的符号）
         std::set<std::string> symbols;
         for (const auto& item : states[currentState].items) {
-            if (item.dotPos < item.prod.right.size()) {
-                symbols.insert(item.prod.right[item.dotPos]);
+            if (item.dotPos < item.prod.right.size()) {  // 检查圆点是否在产生式末尾
+                symbols.insert(item.prod.right[item.dotPos]);  // 添加圆点后的符号
             }
         }
-
-        // 对每个符号计算GOTO集
+        // 5. 对每个可能的转移符号计算GOTO集合，状态 I 通过符号 X 转移到的目标状态
         for (const auto& symbol : symbols) {
+            // 计算GOTO(I, symbol)
             std::set<LR0Item> gotoSet = computeGoto(states[currentState].items, symbol);
-
-            if (!gotoSet.empty()) {
-                // 检查是否是新状态
+            if (!gotoSet.empty()) {  // 如果GOTO集合不为空
+                // 6. 检查是否是新状态
                 if (stateMap.find(gotoSet) == stateMap.end()) {
-                    int newStateNum = states.size();
-                    states.push_back(State(gotoSet, newStateNum));
-                    stateMap[gotoSet] = newStateNum;
-                    queue.push(newStateNum);
+                    // 创建新状态
+                    int newStateNum = states.size();  // 新状态编号
+                    states.push_back(State(gotoSet, newStateNum));  // 添加到状态集合
+                    stateMap[gotoSet] = newStateNum;  // 更新项目集到状态的映射
+                    queue.push(newStateNum);  // 将新状态加入处理队列
                 }
-
-                // 添加转换
+                // 7. 添加状态转换（当前状态通过symbol转移到目标状态）
                 states[currentState].transitions[symbol] = stateMap[gotoSet];
             }
         }
@@ -342,7 +348,7 @@ void SLRGenerator::printParsingTable(const ActionTable& actionTable,
 
 void SLRGenerator::generateArithmeticTable() {
     std::cout << "生成算术表达式SLR分析表..." << std::endl;
-    initArithmeticGrammar();
+    initArithmeticGrammar();//初始化文法，下面相同
     generateParsingTable();
 }
 

@@ -37,9 +37,9 @@ int main() {
         // 1. 生成SLR分析表
         SLRGenerator slrGen;
         std::cout << "正在生成SLR分析表..." << std::endl;
-        slrGen.generateArithmeticTable();
-        slrGen.generateBooleanTable();
-        slrGen.generateStatementTable();
+        slrGen.generateArithmeticTable();//生成算术表达式SLR分析表
+        slrGen.generateBooleanTable();//生成布尔表达式SLR分析表
+        slrGen.generateStatementTable();//生成过程语句SLR分析表
 
         // 2. 读取源文件
         std::string sourceCode = readFile("pas.dat");
@@ -75,7 +75,7 @@ int main() {
         else {
             std::cout << "语法分析失败！请检查输入程序的语法是否正确。" << std::endl;
         }
-
+        //5.汇编语言翻译
         std::vector<Quadruple> quads = parse_quads("pas.med");
         std::set<std::string> vars = collect_vars(quads);
         generate_assembly(quads, vars, "pas.asm");
